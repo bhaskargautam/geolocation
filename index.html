@@ -92,6 +92,9 @@ body{
           }
 
     function drawRoutes(lai, loi, laf, lof) {
+      //Clear previous results
+      $('#result').empty();
+
       // Draw all 3 modes
         Object.keys(travelModesColorMapping).forEach(function(key) {
             // muestra ruta entre marcas anteriores y actuales
@@ -115,6 +118,10 @@ body{
           travelMode: 'bicycling',
           callback : function(routes) {
               try {
+                if(routes.length == 0 )
+                {
+                    $('#result').append("<li><span class=\"single_result\">There is no direct path between selected points. Re-init to start again.</span></li>");
+                }
                 routes.forEach(function(route){
                     leg = route['legs'][0];
                     key = leg.steps[0].travel_mode.toLowerCase();
