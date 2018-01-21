@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Geolocation</title>
+<style>
+body{
+  font-family: 'Droid Sans', 'Helvetica', Arial, sans-serif;
+}
+
+#txt{
+  display: inline;
+  margin: 0;
+  padding: 0;
+  position: left; /* posición absoluta a navegador */
+  top: 0;             /* ajusta a borde de navegador */
+  left: 0;
+  right: 0;
+  height: 50px;
+}
+
+#map{
+  display: block;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #E6E6E6;
+}
+
+.result{
+  margin: 10;
+  padding: 10;
+  display: block;
+  transition: 0.5;
+}
+
+#result{
+  display: inline;
+}
+
+#result li{
+  display: inline;
+}
+
+.single_result {
+  margin:20px;
+  padding: 10px;
+}
+
+</style>
+
+
+  <script type="text/javascript" src="zepto.min.js"></script>
+  <script type="text/javascript" src="http://maps.google.com/maps/api/js"></script>
+  <script type="text/javascript" src="gmaps.js"></script>
+  <script type="text/javascript">
+
+    var map, lat, lng, n, results;
+
+    localStorage.lai  = (localStorage.lai || 0);
+    localStorage.loi  = (localStorage.loi || 0);
+    localStorage.laf  = (localStorage.laf || 0);
+    localStorage.lof = (localStorage.lof || 0);
+
+    function inito(){
+      $("#res").on('click', function(){localStorage.lai = 0; localStorage.loi = 0; localStorage.laf = 0; localStorage.lof = 0; geolocalizar();});
+      $("#com").on('click', compactar);
+      $('#result').empty();
+      results = {}
+
+      geolocalizar();
+    };
+
+    function compactar(){
+      map.removePolylines();
+      map.removeMarkers();
+      drawRoutes(localStorage.lai, localStorage.loi, localStorage.laf, localStorage.lof)
+      map.addMarker({ lat: localStorage.lai, lng: localStorage.loi});
+      map.addMarker({ lat: localStorage.laf, lng: localStorage.lof});
+
+    };
+
+    //Static mapping of travel mode and representing color.
+    var travelModesColorMapping = {
+          'driving' : '#FF0000', //RED
+          'bicycling': '#00FF00', //Green
+          'walking' : '#0000FF' //Blue
+          }
+
+    function drawRoutes(lai, loi, laf, lof) {
+      // Draw all 3 modes
+        Object.keys(travelModesColorMapping).forEach(function(key) {
+            // muestra ruta entre marcas anteriores y actuales
+          map.drawRoute({
+            origin: [lai, loi],  // origen en coordenadas anteriores
+            // destino en coordenadas del click o toque actual
+            destination: [laf, lof],
+            travelMode: key,
+            strokeColor: travelModesColorMapping[key],
+            strokeOpacity: 0.6,
+            strokeWeight: 5
+          });
+
+        });
+
+        //Compute Distance and duration
+        results = {}
+        map.getRoutes({
+          origin: [lai, loi],
+          destination: [laf, lof],
+          travelMode: 'bicycling',
+          callback : function(routes) {
+              try {
+                routes.forEach(function(route){
+                    leg = route['legs'][0];
+                    key = leg.steps[0].travel_mode.toLowerCase();
+                    var distance = leg["distance"]["text"];
+                    var duration = leg["duration"]["text"];
+                    results[key] = [distance, duration];
+                    console.log(key + " Distance " + distance
+                      + "Duration " + duration);
+                    update_result(results);
+                });
+              } catch(err) {
+                console.error("Error occured" + err);
+                update_result(results);
+              }
+            }
+          });
+    }
+
+      function enlazarMarcador(e){
+        //draws 3 routes and updates result
+        drawRoutes(lat, lng, e.latLng.lat(), e.latLng.lng())
+
+        lat = e.latLng.lat();   // guarda coords para marca siguiente
+        lng = e.latLng.lng();
+        localStorage.laf = lat;
+        localStorage.lof = lng;
+        map.addMarker({ lat: lat, lng: lng});  // pone marcador en mapa
+      };
+
+      function geolocalizar(){
+        GMaps.geolocate({
+          success: function(position){
+            lat = position.coords.latitude;  // guarda coords en lat y lng
+            lng = position.coords.longitude;
+
+            map = new GMaps({  // muestra mapa centrado en coords [lat, lng]
+              el: '#map',
+              lat: lat,
+              lng: lng,
+              click: enlazarMarcador,
+              tap: enlazarMarcador
+            });
+            map.addMarker({ lat: lat, lng: lng});  // marcador en [lat, lng]
+            if (localStorage.lai === "0") {localStorage.lai = lat; localStorage.loi = lng;}
+            else {compactar();};
+          },
+          error: function(error) { alert('Geolocalización falla: '+error.message); },
+          not_supported: function(){ alert("Su navegador no soporta geolocalización"); },
+        });
+      };
+
+      function update_result(results){
+        //Clear previous results
+        $('#result').empty();
+
+        //Update results
+        Object.keys(results).forEach(function(key) {
+          distance = results[key][0];
+          duration = results[key][1];
+          $('#result').append("<li style=\"color: " + travelModesColorMapping[key] +"\" >"
+              + "<span class=\"single_result\">By " + key + " takes "  + duration
+              + " (" + distance + ") </span></li>");
+        });
+      }
+
+
+  </script>
+
+</head>
+<body onload="inito()">
+<h3 id="txt">Geolocalización</h3>
+<div id="txt">
+<button type="button" id="res" style="font-size: 0.7em">Init</button>
+<button type="button" id="com" style="font-size: 0.7em">Compactar</button>
+</div>
+
+  <div id="map"></div>
+
+  <div class="result">
+  <h3 id="txt"> Results: </h3>
+  <ul id="result">
+
+  </ul>
+  </div>
+</body>
+</html>
